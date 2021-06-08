@@ -244,30 +244,43 @@ class ColumnDataset(FlairDataset):
 
             # if sentence ends, convert and return
             if self.__line_completes_sentence(line):
-                if len(sentence) > 0:
-                    if self.tag_to_bioes is not None:
-                        sentence.convert_tag_scheme(
-                            tag_type=self.tag_to_bioes, target_scheme="iobes"
-                        )
-                    # check if this sentence is a document boundary
-                    if sentence.to_original_text() == self.document_separator_token:
-                        sentence.is_document_boundary = True
-                    return sentence
+                # if len(sentence) > 0:
+                #     if self.tag_to_bioes is not None:
+                #         sentence.convert_tag_scheme(
+                #             tag_type=self.tag_to_bioes, target_scheme="iobes"
+                #         )
+                #
+                #     sentence.relations = sentence.build_relations()
+                #     for token in sentence:
+                #         token.remove_labels("relation")
+                #         token.remove_labels("relation_dep")
+                #
+                #     # check if this sentence is a document boundary
+                #     if sentence.to_original_text() == self.document_separator_token:
+                #         sentence.is_document_boundary = True
+                #     return sentence
+                break
 
             # otherwise, this line is a token. parse and add to sentence
-            else:
-                token = self._parse_token(line)
-                sentence.add_token(token)
+            # else:
+            token = self._parse_token(line)
+            sentence.add_token(token)
 
         # check if this sentence is a document boundary
         if sentence.to_original_text() == self.document_separator_token: sentence.is_document_boundary = True
+
+        sentence.relations = sentence.build_relations()
+        for token in sentence:
+            token.remove_labels("relation")
+            token.remove_labels("relation_dep")
 
         if self.tag_to_bioes is not None:
             sentence.convert_tag_scheme(
                 tag_type=self.tag_to_bioes, target_scheme="iobes"
             )
 
-        if len(sentence) > 0: return sentence
+        if len(sentence) > 0:
+            return sentence
 
     def _parse_token(self, line: str) -> Token:
         fields: List[str] = re.split(self.column_delimiter, line.rstrip())
@@ -589,7 +602,7 @@ class CONLL_03(ColumnCorpus):
             cached_path(f"{conll_yago_path}combinedENG.testa", Path("datasets") / dataset_name)
             cached_path(f"{conll_yago_path}combinedENG.testb", Path("datasets") / dataset_name)
             cached_path(f"{conll_yago_path}combinedENG.train", Path("datasets") / dataset_name)
-            
+
 
 
         # check if data there
@@ -611,7 +624,7 @@ class CONLL_03(ColumnCorpus):
                 document_separator_token="-DOCSTART-",
                 **corpusargs,
             )
-        else:    
+        else:
             super(CONLL_03, self).__init__(
                 data_folder,
                 columns,
@@ -1816,7 +1829,7 @@ class MIT_RESTAURANT_NER(ColumnCorpus):
             **corpusargs,
         )
 
-        
+
 class IGBO_NER(ColumnCorpus):
     def __init__(
             self,
@@ -1863,8 +1876,8 @@ class IGBO_NER(ColumnCorpus):
             in_memory=in_memory,
             **corpusargs,
         )
-        
-        
+
+
 class HAUSA_NER(ColumnCorpus):
     def __init__(
             self,
@@ -2086,7 +2099,7 @@ class NAIJA_PIDGIN_NER(ColumnCorpus):
         if not base_path:
             base_path = flair.cache_root / "datasets"
         data_folder = base_path / dataset_name
-        
+
         corpus_path = "https://raw.githubusercontent.com/masakhane-io/masakhane-ner/main/data/pcm/"
 
         cached_path(f"{corpus_path}test.txt", Path("datasets") / dataset_name)
@@ -2454,6 +2467,310 @@ class TURKU_NER(ColumnCorpus):
             **corpusargs,
         )
 
+class CONLL_04(ColumnCorpus):
+    def __init__(
+            self,
+            base_path: Union[str, Path] = None,
+            tag_to_bioes: str = "ner",
+            in_memory: bool = True,
+            **corpusargs,
+    ):
+        """
+        Initialize the CoNLL_04. The first time you call this constructor it will automatically
+        download the dataset.
+        :param base_path: Default is None, meaning that corpus gets auto-downloaded and loaded. You can override this
+        to point to a different folder but typically this should not be necessary.
+        :param tag_to_bioes: NER by default, need not be changed, but you could also select 'pos' to predict
+        POS tags instead
+        :param in_memory: If True, keeps dataset in memory giving speedups in training.
+        :param document_as_sequence: If True, all sentences of a document are read into a single Sentence object
+        """
+        if type(base_path) == str:
+            base_path: Path = Path(base_path)
+
+        # column format
+        columns = {1: "text", 2: "ner", 3: "relation", 4: "relation_dep"}
+
+        # this dataset name
+        dataset_name = self.__class__.__name__.lower()
+
+        # default dataset folder is the cache root
+        if not base_path:
+            base_path = Path(flair.cache_root) / "datasets"
+        data_folder = base_path / dataset_name
+
+        # download data if necessary
+        conll_path = "https://raw.githubusercontent.com/bekou/multihead_joint_entity_relation_extraction/master/data/CoNLL04/"
+        dev_file = "dev.txt"
+        test_file = "test.txt"
+        train_file = "train.txt"
+        cached_path(f"{conll_path}/{dev_file}", Path("datasets") / dataset_name)
+        cached_path(f"{conll_path}/{test_file}", Path("datasets") / dataset_name)
+        cached_path(f"{conll_path}/{train_file}", Path("datasets") / dataset_name)
+
+        # add extra blank lines in-between sentences for document separation if necessary
+        for dataset_part in ["dev", "test", "train"]:
+            with open(Path(flair.cache_root) / "datasets" / dataset_name / f"{dataset_part}.txt", "r") as file:
+                lines = file.readlines()
+
+            if lines[0] == "\n":
+                continue
+
+            lines_with_separating_blank_lines = []
+            for line in lines:
+                if line.startswith("#doc"):
+                    lines_with_separating_blank_lines.append("\n")
+                lines_with_separating_blank_lines.append(line)
+
+            with open(Path(flair.cache_root) / "datasets" / dataset_name / f"{dataset_part}.txt", "w") as file:
+                file.writelines(lines_with_separating_blank_lines)
+
+        super(CONLL_04, self).__init__(
+            data_folder,
+            columns,
+            dev_file=dev_file,
+            test_file=test_file,
+            train_file=train_file,
+            column_delimiter="\t",
+            tag_to_bioes=tag_to_bioes,
+            encoding="latin-1",
+            in_memory=in_memory,
+            comment_symbol='#',
+            **corpusargs,
+        )
+
+
+class WEBRED21(ColumnCorpus):
+    def __init__(
+            self,
+            base_path: Union[str, Path] = None,
+            tag_to_bioes: str = "ner",
+            in_memory: bool = True,
+            **corpusargs,
+    ):
+        """
+        Initialize the SEMEVAL2010_RE dataset. The first time you call this constructor it will automatically
+        download the dataset.
+        :param base_path: Default is None, meaning that corpus gets auto-downloaded and loaded. You can override this
+        to point to a different folder but typically this should not be necessary.
+        :param tag_to_bioes: NER by default, need not be changed, but you could also select 'pos' to predict
+        POS tags instead
+        :param in_memory: If True, keeps dataset in memory giving speedups in training.
+        :param document_as_sequence: If True, all sentences of a document are read into a single Sentence object
+        """
+        if type(base_path) == str:
+            base_path: Path = Path(base_path)
+
+        # column format
+        columns = {1: "text", 2: "ner", 3: "relation", 4: "relation_dep"}
+
+        # this dataset name
+        dataset_name = self.__class__.__name__.lower()
+
+        # default dataset folder is the cache root
+        if not base_path:
+            base_path = Path(flair.cache_root) / "datasets"
+        data_folder = base_path / dataset_name
+
+        # download data if necessary
+        conll_path = "https://raw.githubusercontent.com/melvelet/webred-conversion-for-flair/main/"
+        train_file = "webred_21.TXT"
+        cached_path(f"{conll_path}{train_file}", Path("datasets") / dataset_name)
+
+        super(WEBRED21, self).__init__(
+            data_folder,
+            columns,
+            dev_file=None,
+            test_file=None,
+            train_file="webred_21.TXT",
+            column_delimiter="\t",
+            tag_to_bioes=tag_to_bioes,
+            encoding="utf-8",
+            in_memory=in_memory,
+            comment_symbol='#',
+            **corpusargs,
+        )
+
+
+class WEBRED5(ColumnCorpus):
+    def __init__(
+            self,
+            base_path: Union[str, Path] = None,
+            tag_to_bioes: str = "ner",
+            in_memory: bool = True,
+            **corpusargs,
+    ):
+        """
+        Initialize the SEMEVAL2010_RE dataset. The first time you call this constructor it will automatically
+        download the dataset.
+        :param base_path: Default is None, meaning that corpus gets auto-downloaded and loaded. You can override this
+        to point to a different folder but typically this should not be necessary.
+        :param tag_to_bioes: NER by default, need not be changed, but you could also select 'pos' to predict
+        POS tags instead
+        :param in_memory: If True, keeps dataset in memory giving speedups in training.
+        :param document_as_sequence: If True, all sentences of a document are read into a single Sentence object
+        """
+        if type(base_path) == str:
+            base_path: Path = Path(base_path)
+
+        # column format
+        columns = {1: "text", 2: "ner", 3: "relation", 4: "relation_dep"}
+
+        # this dataset name
+        dataset_name = self.__class__.__name__.lower()
+
+        # default dataset folder is the cache root
+        if not base_path:
+            base_path = Path(flair.cache_root) / "datasets"
+        data_folder = base_path / dataset_name
+
+        # download data if necessary
+        conll_path = "https://raw.githubusercontent.com/melvelet/webred-conversion-for-flair/main/"
+        train_file = "webred_5.TXT"
+        cached_path(f"{conll_path}{train_file}", Path("datasets") / dataset_name)
+
+        super(WEBRED5, self).__init__(
+            data_folder,
+            columns,
+            dev_file=None,
+            test_file=None,
+            train_file="webred_5.TXT",
+            column_delimiter="\t",
+            tag_to_bioes=tag_to_bioes,
+            encoding="utf-8",
+            in_memory=in_memory,
+            comment_symbol='#',
+            **corpusargs,
+        )
+
+
+class SEMEVAL2010_RE(ColumnCorpus):
+    def __init__(
+            self,
+            base_path: Union[str, Path] = None,
+            tag_to_bioes: str = "ner",
+            in_memory: bool = True,
+            **corpusargs,
+    ):
+        """
+        Initialize the SEMEVAL2010_RE dataset. The first time you call this constructor it will automatically
+        download the dataset.
+        :param base_path: Default is None, meaning that corpus gets auto-downloaded and loaded. You can override this
+        to point to a different folder but typically this should not be necessary.
+        :param tag_to_bioes: NER by default, need not be changed, but you could also select 'pos' to predict
+        POS tags instead
+        :param in_memory: If True, keeps dataset in memory giving speedups in training.
+        :param document_as_sequence: If True, all sentences of a document are read into a single Sentence object
+        """
+        if type(base_path) == str:
+            base_path: Path = Path(base_path)
+
+        # column format
+        columns = {1: "text", 2: "ner", 3: "relation", 4: "relation_dep"}
+
+        # this dataset name
+        dataset_name = self.__class__.__name__.lower()
+
+        # default dataset folder is the cache root
+        if not base_path:
+            base_path = Path(flair.cache_root) / "datasets"
+        data_folder = base_path / dataset_name
+
+        # download data if necessary
+        conll_path = "https://raw.githubusercontent.com/sahitya0000/Relation-Classification/master/corpus/SemEval2010_task8"
+        test_file = "_testing_keys/TEST_FILE_FULL.TXT"
+        train_file = "_training/TRAIN_FILE.TXT"
+        cached_path(f"{conll_path}{test_file}", Path("datasets") / dataset_name)
+        cached_path(f"{conll_path}{train_file}", Path("datasets") / dataset_name)
+
+        # convert to correct format - see CONLL_04 dataset
+        for dataset_part in ["TEST_FILE_FULL", "TRAIN_FILE"]:
+            with open(Path(flair.cache_root) / "datasets" / dataset_name / f"{dataset_part}.TXT", "r") as file:
+                lines = file.readlines()
+
+            if lines[0].startswith("#converted"):
+                continue
+
+            lines_in_required_format = []
+            sentence_lines = list()
+            rel_dep_idx = [None, None]
+            sent_no = 0
+            multi_token_entity = False
+            for line in lines:
+                if line == '\n':
+                    sentence_lines = list()
+                    continue
+
+                line = line.replace('\n', '').split('\t')
+                if line[0].isdigit():
+                    tokens = line[1]
+                    tokens = tokens.replace('\"', '').replace('.', ' .').replace(',', ' ,').replace(';', ' ;').replace('?', ' ?')
+                    tokens = tokens.split(' ')
+
+                    for i, tok in enumerate(tokens):
+                        entity = 'O'
+                        if tok.startswith('<e'):
+                            entity = "B-Ent"
+                            entity_idx = int(tok[2]) - 1
+                            rel_dep_idx[entity_idx] = i
+                            if '</' in tok:
+                                tok = tok[len('<ei>'):tok.rfind('<')]
+                            else:
+                                tok = tok[len('<ei>'):]
+                                multi_token_entity = True
+
+                        elif multi_token_entity:
+                            entity = "I-Ent"
+                            if '</' in tok:
+                                entity_idx = int(tok[tok.rfind('<') + 3]) - 1
+                                rel_dep_idx[entity_idx] = i
+                                tok = tok[:tok.rfind('<')]
+                                multi_token_entity = False
+
+                        sentence_lines.append([str(i), tok, entity, "['N']", f"[{i}]"])
+
+                elif line[0].startswith("Comment"):
+                    continue
+
+                else:
+                    relation = line[0].split('(')
+                    if line[0] != "Other":
+                        relation_from = int(relation[1][1]) - 1
+                        relation_from_idx = rel_dep_idx[relation_from]
+                        relation_to = int(relation[1][4]) - 1
+                        relation_to_idx = rel_dep_idx[relation_to]
+                    else:
+                        relation_from_idx = rel_dep_idx[0]
+                        relation_to_idx = rel_dep_idx[1]
+                    sentence_lines[relation_from_idx][3] = f"['{relation[0]}']"
+                    sentence_lines[relation_from_idx][4] = f"[{relation_to_idx}]"
+
+                    lines_in_required_format.append([f"#doc {sent_no}"])
+                    sent_no += 1
+                    lines_in_required_format += sentence_lines
+
+            with open(Path(flair.cache_root) / "datasets" / dataset_name / f"{dataset_part}.TXT", "w") as file:
+                concat_lines = ["#converted"]
+                for line in lines_in_required_format:
+                    if line[0].startswith('#'):
+                        concat_lines.append(f"\n{line[0]}\n")
+                    else:
+                        concat_lines.append("\t".join(line) + '\n')
+                file.writelines(concat_lines)
+
+        super(SEMEVAL2010_RE, self).__init__(
+            data_folder,
+            columns,
+            dev_file=None,
+            test_file="TEST_FILE_FULL.TXT",
+            train_file="TRAIN_FILE.TXT",
+            column_delimiter="\t",
+            tag_to_bioes=tag_to_bioes,
+            encoding="latin-1",
+            in_memory=in_memory,
+            comment_symbol='#',
+            **corpusargs,
+        )
 
 class TWITTER_NER(ColumnCorpus):
     def __init__(
@@ -4297,7 +4614,7 @@ class REDDIT_EL_GOLD(ColumnCorpus):
             **corpusargs,
     ):
         """
-        Initialize the Reddit Entity Linking corpus containing gold annotations only (https://arxiv.org/abs/2101.01228v2) in the NER-like column format. 
+        Initialize the Reddit Entity Linking corpus containing gold annotations only (https://arxiv.org/abs/2101.01228v2) in the NER-like column format.
         The first time you call this constructor it will automatically download the dataset.
         :param base_path: Default is None, meaning that corpus gets auto-downloaded and loaded. You can override this
         to point to a different folder but typically this should not be necessary.
@@ -4370,7 +4687,7 @@ class REDDIT_EL_GOLD(ColumnCorpus):
 
                         # Keep track of the current comment thread and its corresponding key, on which the annotations are matched.
                         # Each comment thread is handled as one 'document'.
-                        self.curr_comm = self.curr_row[4] 
+                        self.curr_comm = self.curr_row[4]
                         comm_key = self.curr_row[0]
 
                         # Python's csv package for some reason fails to correctly parse a handful of rows inside the comments.tsv file.
@@ -4393,13 +4710,13 @@ class REDDIT_EL_GOLD(ColumnCorpus):
                             self._text_to_cols(Sentence(self.curr_comm, use_tokenizer = True), link_annots, txtout)
                         else:
                             # In two of the comment thread a case of capital letter spacing occurs, which the SegtokTokenizer cannot properly handle.
-                            # The following if-elif condition handles these two cases and as result writes full capitalized words in each corresponding row, 
+                            # The following if-elif condition handles these two cases and as result writes full capitalized words in each corresponding row,
                             # and not just single letters into single rows.
                             if comm_key == "dv74ybb":
                                 self.curr_comm = " ".join([word.replace(" ", "") for word in self.curr_comm.split("  ")])
                             elif comm_key == "eci2lut":
-                                self.curr_comm = (self.curr_comm[:18] + self.curr_comm[18:27].replace(" ", "") + self.curr_comm[27:55] + 
-                                self.curr_comm[55:68].replace(" ", "") + self.curr_comm[68:85] + self.curr_comm[85:92].replace(" ", "") + 
+                                self.curr_comm = (self.curr_comm[:18] + self.curr_comm[18:27].replace(" ", "") + self.curr_comm[27:55] +
+                                self.curr_comm[55:68].replace(" ", "") + self.curr_comm[68:85] + self.curr_comm[85:92].replace(" ", "") +
                                 self.curr_comm[92:])
 
                             self._text_to_cols(Sentence(self.curr_comm, use_tokenizer = True), link_annots, txtout)
@@ -4449,10 +4766,10 @@ class REDDIT_EL_GOLD(ColumnCorpus):
             # incorrectly, in order to keep the desired format (empty line as a sentence separator).
             try:
                 if ((sentence[i].text in {".", "!", "?", "!*"}) and
-                    (sentence[i+1].text not in {'"', '“', "'", "''", "!", "?", ";)", "."}) and 
+                    (sentence[i+1].text not in {'"', '“', "'", "''", "!", "?", ";)", "."}) and
                     ("." not in sentence[i-1].text)):
                     outfile.writelines("\n")
-            except IndexError: 
+            except IndexError:
             # Thrown when the second check above happens, but the last token of a sentence is reached.
             # Indicates that the EOS punctuaion mark is present, therefore an empty line needs to be written below.
                 outfile.writelines("\n")
@@ -4496,7 +4813,7 @@ class REDDIT_EL_GOLD(ColumnCorpus):
             # Check if further annotations belong to the current sentence as well
             try:
                 next_row = next(self.comments) if not fix_flag else next(self.parsed_row)
-                if len(next_row) < 2: 
+                if len(next_row) < 2:
                     # 'else "  "' is needed to keep the proper token positions (for accordance with annotations)
                     self.curr_comm += next_row[0] if any(next_row) else "  "
                 else:

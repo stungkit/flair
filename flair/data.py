@@ -1,6 +1,7 @@
 import torch, flair
 import logging
 import re
+import ast
 
 from abc import abstractmethod, ABC
 
@@ -418,7 +419,7 @@ class Span(DataPoint):
             pos += len(t.text)
 
         return str
-     
+
     def to_plain_string(self):
         plain = ""
         for token in self.tokens:
@@ -593,6 +594,8 @@ class Sentence(DataPoint):
 
         # some sentences represent a document boundary (but most do not)
         self.is_document_boundary: bool = False
+
+        self.relations: List[Relation] = list()
 
     def get_token(self, token_id: int) -> Token:
         for token in self.tokens:
@@ -990,6 +993,84 @@ class Sentence(DataPoint):
         """
         return '_previous_sentence' in self.__dict__.keys() or '_position_in_dataset' in self.__dict__.keys()
 
+    def build_relations(self):
+        result: List[Relation] = []
+        spans = self.get_spans('ner')
+        relations_from_tags = self._get_relations_from_tags()
+        for i, span_i in enumerate(spans):
+            for j, span_j in enumerate(spans):
+                if i == j:
+                    continue
+
+                for relation in relations_from_tags:
+                    if relation[0] == i and relation[1] == j:
+                        result.append(Relation(span_i, span_j, Label(relation[2])))
+
+        return result
+
+    def add_virtual_negative_relations(self, label_name=None):
+        result: List[Relation] = []
+        spans = self.get_spans('ner')
+        for i, span_i in enumerate(spans):
+            for j, span_j in enumerate(spans):
+                if i == j:
+                    continue
+
+                existing_relation = list(filter(
+                    lambda k: str(k.first) == str(span_i) and str(k.second) == str(span_j), self.relations
+                ))
+                if existing_relation:
+                    result.append(existing_relation[0])
+                else:
+                    relation = Relation(span_i, span_j, Label('N'))
+                    if label_name:
+                        relation.add_label(label_name, 'N')
+                    result.append(relation)
+
+        return result
+
+    def remove_virtual_negative_relations(self):
+        result: List[Relation] = []
+        for relation in self.relations:
+            for label in relation.labels:
+                if label.value != 'N':
+                    result.append(relation)
+                    break
+
+        return result
+
+    def _get_relations_from_tags(self):
+        result = []
+
+        raw_relations_in_sentence = self.get_spans('relation')
+        raw_relation_deps_in_sentence = self.get_spans('relation_dep')
+        if not raw_relations_in_sentence or not raw_relation_deps_in_sentence:
+            return result
+
+        for i, span in enumerate(self.get_spans('ner')):
+            last_token_idx = span.tokens[-1].idx
+
+            # raw_relations[last_token_idx - 1] possible if all negatives are explicitly tagged, otherwise:
+            raw_relations = [i for i in raw_relations_in_sentence if i.tokens[0].idx == last_token_idx][0]
+            relations = ast.literal_eval(raw_relations.labels[0].value)
+
+            raw_relation_deps = [i for i in raw_relation_deps_in_sentence if i.tokens[0].idx == last_token_idx][0]
+            relation_deps = ast.literal_eval(raw_relation_deps.labels[0].value)
+
+            for j, relation in enumerate(relations):
+                if relation != 'N':
+                    dep_idx = self._get_span_idx_from_relation_idx(relation_deps[j])
+                    result.append((i, dep_idx, relation))
+
+        return result
+
+    def _get_span_idx_from_relation_idx(self, relation_idx: int):
+        ner_spans = self.get_spans('ner')
+        for span_idx, span in enumerate(ner_spans):
+            token_indices = [i.idx for i in span.tokens]
+            if relation_idx + 1 in token_indices:
+                return span_idx
+        return None
 
 class Image(DataPoint):
 
@@ -1331,6 +1412,36 @@ class Corpus:
 
         return label_dictionary
 
+    def make_relation_label_dictionary(self, label_type: str = None) -> Dictionary:
+        """
+        Creates a dictionary of all relation labels assigned to the sentences in the corpus.
+        :return: dictionary of labels
+        """
+        label_dictionary: Dictionary = Dictionary(add_unk=False)
+        label_dictionary.multi_label = False
+        label_dictionary.add_item('N')
+
+        from flair.datasets import DataLoader
+
+        data = ConcatDataset([self.train, self.test])
+        loader = DataLoader(data, batch_size=1)
+
+        log.info("Computing relation label dictionary. Progress:")
+        for batch in Tqdm.tqdm(iter(loader)):
+            for sentence in batch:
+                labels = [relation.get_labels("relation_type")[0] for relation in sentence.relations]
+
+                for label in labels:
+                    label_dictionary.add_item(label.value)
+
+                if not label_dictionary.multi_label:
+                    if len(labels) > 1:
+                        label_dictionary.multi_label = True
+
+        log.info(f"Relations in dataset: {label_dictionary.idx2item}")
+
+        return label_dictionary
+
     def get_label_distribution(self):
         class_to_count = defaultdict(lambda: 0)
         for sent in self.train:
@@ -1443,3 +1554,49 @@ def randomly_split_into_two_datasets(dataset, length_of_first):
     second_dataset.sort()
 
     return [Subset(dataset, first_dataset), Subset(dataset, second_dataset)]
+
+
+class Relation(DataPoint):
+    def __init__(self, first: Span, second: Span, label: Label):
+        super().__init__()
+        self.first = first
+        self.second = second
+        self.add_label("relation_type", label.value, label.score)
+        self.tags_proba_dist: List[Label] = []
+
+    def to(self, device: str, pin_memory: bool = False):
+        self.first.to(device, pin_memory)
+        self.second.to(device, pin_memory)
+
+    def clear_embeddings(self, embedding_names: List[str] = None):
+        self.first.clear_embeddings(embedding_names)
+        self.second.clear_embeddings(embedding_names)
+
+    @property
+    def embedding(self):
+        return torch.cat([self.first.embedding, self.second.embedding])
+
+    def __repr__(self):
+        return f"Relation:\n − First {self.first}\n − Second {self.second}\n − Labels: {self.labels}"
+
+    def to_plain_string(self):
+        return f"Relation: First {self.first}  ||  Second {self.second} || Labels: {self.labels}"
+
+    def print_span_text(self):
+        return f"Relation: First {self.first}  ||  Second {self.second}"
+
+    def __len__(self):
+        return len(self.first) + len(self.second)
+
+    def add_tag_label(self, tag_type: str, tag: Label):
+        self.set_label(tag_type, tag.value, tag.score)
+
+    def get_tag(self, label_type: str = "relation_type"):
+        if len(self.get_labels(label_type)) == 0: return Label('')
+        return self.get_labels(label_type)[0]
+
+    def add_tags_proba_dist(self, tags: List[Label]):
+        self.tags_proba_dist = tags
+
+    def get_tags_proba_dist(self) -> List[Label]:
+        return self.tags_proba_dist
