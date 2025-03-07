@@ -16,7 +16,7 @@ In your favorite virtual environment, simply do:
 pip install flair
 ```
 
-Flair requires Python 3.8+. 
+Flair requires Python 3.9+. 
 
 ## Example 1: Tag Entities in Text
 
@@ -90,3 +90,7 @@ The output shows that the sentence "_I love Berlin and New York._" was tagged as
 ## Summary
 
 Congrats, you now know how to use Flair to find entities and detect sentiment!
+
+## Next steps
+
+If you want to know more about Flair, next check out [Tutorial 1](tutorial-basics/) that gives an intro into the basics of Flair!

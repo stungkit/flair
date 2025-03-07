@@ -87,7 +87,8 @@ This print-out includes the token index (3) and the lexical value of the token (
 When you create a [`Sentence`](#flair.data.Sentence) as above, the text is automatically tokenized (segmented into words) using the [segtok](https://pypi.org/project/segtok/) library.
 
 ```{note}
-You can also use a different tokenizer if you like. To learn more about this, check out our tokenization tutorial.
+You can also use a different tokenizer by passing a different [`Tokenizer`](#flair.tokenization.Tokenizer ) to the Sentence 
+when you initialize it.
 ```
 
 
@@ -242,7 +243,7 @@ for label in sentence.get_labels('ner'):
 
 ### Information for each label
 
-Each label is of class `Label` which next to the value has a score indicating confidence. It also has a pointer back to the data point to which it attaches.
+Each label is of class [`Label`](#flair.data.Label) which next to the value has a score indicating confidence. It also has a pointer back to the data point to which it attaches.
 
 This means that you can print the value, the confidence and the labeled text of each label:
 
@@ -267,3 +268,9 @@ This should print:
 
 Our color tag has a score of 1.0 since we manually added it. If a tag is predicted by our sequence labeler, the score value will indicate classifier confidence.
 
+
+### Next
+
+Congrats, you now understand Flair's basic types. 
+
+Next, learn how to use [Flair models to make predictions](how-predictions-work.md). 
