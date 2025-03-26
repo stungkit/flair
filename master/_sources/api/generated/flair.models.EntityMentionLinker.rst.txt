@@ -87,7 +87,7 @@
       ~EntityMentionLinker.dictionary
       ~EntityMentionLinker.dump_patches
       ~EntityMentionLinker.label_type
-      ~EntityMentionLinker.model_card
+      ~EntityMentionLinker.license_info
       ~EntityMentionLinker.training
    
    

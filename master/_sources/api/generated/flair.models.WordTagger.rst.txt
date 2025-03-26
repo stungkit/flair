@@ -84,7 +84,7 @@
       ~WordTagger.call_super_init
       ~WordTagger.dump_patches
       ~WordTagger.label_type
-      ~WordTagger.model_card
+      ~WordTagger.license_info
       ~WordTagger.multi_label_threshold
       ~WordTagger.training
    

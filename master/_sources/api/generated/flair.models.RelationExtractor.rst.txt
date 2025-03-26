@@ -84,7 +84,7 @@
       ~RelationExtractor.call_super_init
       ~RelationExtractor.dump_patches
       ~RelationExtractor.label_type
-      ~RelationExtractor.model_card
+      ~RelationExtractor.license_info
       ~RelationExtractor.multi_label_threshold
       ~RelationExtractor.training
    

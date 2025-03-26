@@ -91,7 +91,7 @@
       ~FewshotClassifier.call_super_init
       ~FewshotClassifier.dump_patches
       ~FewshotClassifier.label_type
-      ~FewshotClassifier.model_card
+      ~FewshotClassifier.license_info
       ~FewshotClassifier.tars_embeddings
       ~FewshotClassifier.training
    

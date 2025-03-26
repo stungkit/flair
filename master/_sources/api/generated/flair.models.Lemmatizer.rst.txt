@@ -89,7 +89,7 @@
       ~Lemmatizer.call_super_init
       ~Lemmatizer.dump_patches
       ~Lemmatizer.label_type
-      ~Lemmatizer.model_card
+      ~Lemmatizer.license_info
       ~Lemmatizer.training
    
    

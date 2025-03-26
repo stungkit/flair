@@ -85,7 +85,7 @@
       ~MultitaskModel.call_super_init
       ~MultitaskModel.dump_patches
       ~MultitaskModel.label_type
-      ~MultitaskModel.model_card
+      ~MultitaskModel.license_info
       ~MultitaskModel.training
    
    

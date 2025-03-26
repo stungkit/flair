@@ -91,7 +91,7 @@
       ~TARSTagger.call_super_init
       ~TARSTagger.dump_patches
       ~TARSTagger.label_type
-      ~TARSTagger.model_card
+      ~TARSTagger.license_info
       ~TARSTagger.static_label_type
       ~TARSTagger.tars_embeddings
       ~TARSTagger.training

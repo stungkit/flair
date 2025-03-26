@@ -88,7 +88,7 @@
       ~SpanClassifier.call_super_init
       ~SpanClassifier.dump_patches
       ~SpanClassifier.label_type
-      ~SpanClassifier.model_card
+      ~SpanClassifier.license_info
       ~SpanClassifier.multi_label_threshold
       ~SpanClassifier.training
    

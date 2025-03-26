@@ -85,7 +85,7 @@
       ~TextRegressor.call_super_init
       ~TextRegressor.dump_patches
       ~TextRegressor.label_type
-      ~TextRegressor.model_card
+      ~TextRegressor.license_info
       ~TextRegressor.training
    
    
